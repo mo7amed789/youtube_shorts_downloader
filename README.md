@@ -4,6 +4,9 @@ This local Windows-friendly tool downloads an inclusive range of videos from a
 YouTube channel or Shorts URL. It uses `yt-dlp` and has both a simple GUI and a
 command-line mode.
 
+The packaged Windows release includes Python, FFmpeg, and Node.js. You only
+need a current YouTube cookie file when YouTube requests sign-in verification.
+
 Use it only for videos you have permission to download or reuse, and follow
 YouTube's terms and the creator's copyright/license.
 

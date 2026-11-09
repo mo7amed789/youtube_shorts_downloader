@@ -7,6 +7,7 @@ copyright/license may restrict downloading or reuse.
 from __future__ import annotations
 
 import argparse
+import os
 import queue
 import shutil
 import subprocess
@@ -18,11 +19,34 @@ from tkinter import filedialog, messagebox, ttk
 
 
 DEFAULT_URL = "https://www.youtube.com/@zadqolob/shorts"
-APP_DIR = Path(__file__).resolve().parent
+IS_FROZEN = bool(getattr(sys, "frozen", False))
+APP_DIR = Path(sys.executable).resolve().parent if IS_FROZEN else Path(__file__).resolve().parent
+
+
+def runtime_environment() -> dict[str, str]:
+    """Add bundled FFmpeg to PATH when running from the packaged EXE."""
+    env = dict(os.environ)
+    roots = []
+    if getattr(sys, "_MEIPASS", None):
+        roots.append(Path(sys._MEIPASS))
+    roots.append(APP_DIR)
+    for root in roots:
+        bundled_ffmpeg = root / "ffmpeg"
+        if (bundled_ffmpeg / "ffmpeg.exe").is_file():
+            env["PATH"] = str(bundled_ffmpeg) + os.pathsep + env.get("PATH", "")
+            break
+    for root in roots:
+        bundled_node = root / "node"
+        if (bundled_node / "node.exe").is_file():
+            env["PATH"] = str(bundled_node) + os.pathsep + env.get("PATH", "")
+            break
+    return env
 
 
 def yt_dlp_command() -> list[str]:
     """Return the most portable way to invoke yt-dlp."""
+    if IS_FROZEN:
+        return [sys.executable, "--yt-dlp"]
     if shutil.which("yt-dlp"):
         return ["yt-dlp"]
     return [sys.executable, "-m", "yt_dlp"]
@@ -34,6 +58,7 @@ def run_yt_dlp(args: list[str], output=None) -> subprocess.CompletedProcess[str]
         text=True,
         stdout=output,
         stderr=subprocess.STDOUT,
+        env=runtime_environment(),
         check=False,
     )
 
@@ -61,7 +86,7 @@ def download(
 ) -> int:
     folder.mkdir(parents=True, exist_ok=True)
     webm_before = set(folder.glob("*.webm"))
-    ffmpeg_available = shutil.which("ffmpeg") is not None
+    ffmpeg_available = shutil.which("ffmpeg", path=runtime_environment().get("PATH")) is not None
     args = [
         "--yes-playlist",
         "--js-runtimes",
@@ -96,6 +121,7 @@ def download(
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            env=runtime_environment(),
             check=False,
         )
         for line in result.stdout.splitlines():
@@ -287,6 +313,12 @@ class App(tk.Tk):
 
 
 def main() -> int:
+    if IS_FROZEN and len(sys.argv) > 1 and sys.argv[1] == "--yt-dlp":
+        import yt_dlp
+
+        sys.argv = [sys.argv[0], *sys.argv[2:]]
+        yt_dlp.main()
+        return 0
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", help="Channel or Shorts URL")
     parser.add_argument("--range", dest="range", help="Inclusive range, such as 1-10")

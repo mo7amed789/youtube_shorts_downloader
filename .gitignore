@@ -1,3 +1,5 @@
 __pycache__/
 downloads/
 outputs/
+.venv_instagram/
+release/
