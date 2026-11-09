@@ -76,3 +76,5 @@ py youtube_shorts_downloader.py `
 ```
 
 Existing files are not overwritten, and interrupted downloads can be resumed.
+Filenames preserve Arabic and other Unicode titles while removing characters
+that Windows does not allow in file names.
