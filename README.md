@@ -15,6 +15,19 @@ Install Python 3.10+ and `yt-dlp`:
 py -m pip install -U yt-dlp
 ```
 
+If YouTube reports `Sign in to confirm you're not a bot`, select the browser
+where you are signed in to YouTube in the GUI. The command-line equivalent is:
+
+```powershell
+py youtube_shorts_downloader.py `
+  --url "https://www.youtube.com/@zadqolob/shorts" `
+  --range 1-10 `
+  --cookies-from-browser chrome
+```
+
+Close the selected browser before starting if yt-dlp cannot read its cookie
+database. Cookies stay local and are not uploaded by this tool.
+
 For best quality when separate audio/video streams are selected, install
 FFmpeg and make sure `ffmpeg.exe` is on PATH. The tool will still use a
 single-file format when merging is unavailable.
@@ -25,9 +38,10 @@ single-file format when merging is unavailable.
 py youtube_shorts_downloader.py
 ```
 
-Paste a channel/Shorts URL, enter a range such as `1-10`, choose a folder, and
-click **Download range**. The positions are the order returned by YouTube for
-that URL; ordering can change as new Shorts are published.
+Paste a channel/Shorts URL, enter a range such as `1-10`, choose a folder,
+select your signed-in browser if needed, and click **Download range**. The
+positions are the order returned by YouTube for that URL; ordering can change
+as new Shorts are published.
 
 ## Run from PowerShell
 
