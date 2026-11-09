@@ -61,6 +61,10 @@ def download(
     folder.mkdir(parents=True, exist_ok=True)
     args = [
         "--yes-playlist",
+        "--js-runtimes",
+        "node",
+        "--remote-components",
+        "ejs:github",
         "--playlist-items",
         f"{start}:{end}",
         "--no-overwrites",

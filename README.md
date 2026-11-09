@@ -12,8 +12,13 @@ YouTube's terms and the creator's copyright/license.
 Install Python 3.10+ and `yt-dlp`:
 
 ```powershell
-py -m pip install -U yt-dlp
+py -m pip install -U "yt-dlp[default]"
 ```
+
+YouTube now requires a supported JavaScript runtime and yt-dlp's external
+challenge solver for many videos. Install Node.js 22+ if it is not already
+installed. This tool uses Node and enables yt-dlp's official EJS components
+from GitHub automatically.
 
 If YouTube reports `Sign in to confirm you're not a bot`, select the browser
 where you are signed in to YouTube in the GUI. The command-line equivalent is:
