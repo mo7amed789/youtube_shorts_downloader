@@ -59,6 +59,8 @@ def download(
     on_line=None,
 ) -> int:
     folder.mkdir(parents=True, exist_ok=True)
+    webm_before = set(folder.glob("*.webm"))
+    ffmpeg_available = shutil.which("ffmpeg") is not None
     args = [
         "--yes-playlist",
         "--js-runtimes",
@@ -95,6 +97,14 @@ def download(
         )
         for line in result.stdout.splitlines():
             on_line(line)
+    if result.returncode == 0 and ffmpeg_available:
+        # Successful FFmpeg post-processing produces the final MP4 and leaves
+        # no reason to retain the temporary audio/video WebM inputs.
+        for temporary in set(folder.glob("*.webm")) - webm_before:
+            try:
+                temporary.unlink()
+            except OSError:
+                pass
     return result.returncode
 
 

@@ -50,9 +50,10 @@ exported file. That path is only an example.
 Treat cookie files like passwords: do not upload or share them, and delete the
 export after use.
 
-For best quality when separate audio/video streams are selected, install
-FFmpeg and make sure `ffmpeg.exe` is on PATH. The tool will still use a
-single-file format when merging is unavailable.
+Install FFmpeg and make sure `ffmpeg.exe` is on PATH. YouTube commonly serves
+video and audio separately; FFmpeg merges them into one MP4. After a successful
+merge, the tool removes the temporary WebM inputs. If FFmpeg is missing, the
+tool keeps the WebM files because deleting them would remove the audio.
 
 ## Run the GUI
 
