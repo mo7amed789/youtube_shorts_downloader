@@ -1,0 +1,228 @@
+"""Download an inclusive range of videos from a YouTube channel or Shorts URL.
+
+Use only for videos you are allowed to download. YouTube's terms and a video's
+copyright/license may restrict downloading or reuse.
+"""
+
+from __future__ import annotations
+
+import argparse
+import queue
+import shutil
+import subprocess
+import sys
+import threading
+import tkinter as tk
+from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
+
+
+DEFAULT_URL = "https://www.youtube.com/@zadqolob/shorts"
+
+
+def yt_dlp_command() -> list[str]:
+    """Return the most portable way to invoke yt-dlp."""
+    if shutil.which("yt-dlp"):
+        return ["yt-dlp"]
+    return [sys.executable, "-m", "yt_dlp"]
+
+
+def run_yt_dlp(args: list[str], output=None) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        yt_dlp_command() + args,
+        text=True,
+        stdout=output,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+
+
+def parse_range(value: str) -> tuple[int, int]:
+    value = value.strip().replace("–", "-").replace("—", "-")
+    if "-" in value:
+        left, right = value.split("-", 1)
+        start, end = int(left.strip()), int(right.strip())
+    else:
+        start = end = int(value)
+    if start < 1 or end < start:
+        raise ValueError("Range must be positive and formatted like 1-10.")
+    return start, end
+
+
+def download(url: str, start: int, end: int, folder: Path, on_line=None) -> int:
+    folder.mkdir(parents=True, exist_ok=True)
+    args = [
+        "--yes-playlist",
+        "--playlist-items",
+        f"{start}:{end}",
+        "--no-overwrites",
+        "--continue",
+        "--restrict-filenames",
+        "-o",
+        str(folder / "%(playlist_index)03d - %(title)s [%(id)s].%(ext)s"),
+        "-f",
+        "bv*+ba/b",
+        "--merge-output-format",
+        "mp4",
+        url,
+    ]
+    if on_line is None:
+        result = run_yt_dlp(args)
+    else:
+        result = subprocess.run(
+            yt_dlp_command() + args,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+        for line in result.stdout.splitlines():
+            on_line(line)
+    return result.returncode
+
+
+def cli_main(args: argparse.Namespace) -> int:
+    try:
+        start, end = parse_range(args.range)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+    print(f"Downloading Shorts {start}-{end} from {args.url}")
+    code = download(args.url, start, end, Path(args.output), print)
+    if code == 0:
+        print("Finished.")
+    return code
+
+
+class App(tk.Tk):
+    def __init__(self) -> None:
+        super().__init__()
+        self.title("YouTube Shorts Range Downloader")
+        self.geometry("760x500")
+        self.minsize(680, 430)
+        self.events: queue.Queue[str] = queue.Queue()
+        self.running = False
+        self._build_ui()
+        self.after(100, self._drain_events)
+
+    def _build_ui(self) -> None:
+        pad = {"padx": 12, "pady": 7}
+        main = ttk.Frame(self)
+        main.pack(fill="both", expand=True, padx=10, pady=10)
+        main.columnconfigure(1, weight=1)
+        main.rowconfigure(4, weight=1)
+
+        ttk.Label(main, text="Channel or Shorts URL:").grid(row=0, column=0, sticky="w", **pad)
+        self.url = ttk.Entry(main)
+        self.url.insert(0, DEFAULT_URL)
+        self.url.grid(row=0, column=1, columnspan=2, sticky="ew", **pad)
+
+        ttk.Label(main, text="Video range:").grid(row=1, column=0, sticky="w", **pad)
+        self.range = ttk.Entry(main, width=18)
+        self.range.insert(0, "1-10")
+        self.range.grid(row=1, column=1, sticky="w", **pad)
+        ttk.Label(main, text="Inclusive playlist positions, e.g. 1-10 or 7").grid(
+            row=1, column=2, sticky="w", **pad
+        )
+
+        ttk.Label(main, text="Save folder:").grid(row=2, column=0, sticky="w", **pad)
+        self.output = ttk.Entry(main)
+        self.output.insert(0, str(Path.cwd() / "downloads"))
+        self.output.grid(row=2, column=1, sticky="ew", **pad)
+        ttk.Button(main, text="Browse…", command=self.choose_folder).grid(row=2, column=2, **pad)
+
+        self.start_button = ttk.Button(main, text="Download range", command=self.start_download)
+        self.start_button.grid(row=3, column=1, sticky="w", **pad)
+        self.progress = ttk.Progressbar(main, mode="indeterminate")
+        self.progress.grid(row=3, column=2, sticky="ew", **pad)
+
+        ttk.Label(main, text="Log:").grid(row=4, column=0, sticky="nw", **pad)
+        self.log = tk.Text(main, height=15, wrap="word", state="disabled")
+        self.log.grid(row=4, column=1, columnspan=2, sticky="nsew", **pad)
+        scroll = ttk.Scrollbar(main, orient="vertical", command=self.log.yview)
+        scroll.grid(row=4, column=3, sticky="ns")
+        self.log.configure(yscrollcommand=scroll.set)
+
+        ttk.Label(
+            main,
+            text="Use only for content you have permission to download or reuse.",
+            foreground="#555555",
+        ).grid(row=5, column=0, columnspan=3, sticky="w", padx=12, pady=8)
+
+    def choose_folder(self) -> None:
+        chosen = filedialog.askdirectory()
+        if chosen:
+            self.output.delete(0, tk.END)
+            self.output.insert(0, chosen)
+
+    def write_log(self, line: str) -> None:
+        self.log.configure(state="normal")
+        self.log.insert(tk.END, line + "\n")
+        self.log.see(tk.END)
+        self.log.configure(state="disabled")
+
+    def start_download(self) -> None:
+        if self.running:
+            return
+        try:
+            start, end = parse_range(self.range.get())
+        except ValueError as exc:
+            messagebox.showerror("Invalid range", str(exc))
+            return
+        url = self.url.get().strip()
+        folder = Path(self.output.get().strip()).expanduser()
+        if not url:
+            messagebox.showerror("Missing URL", "Enter a channel or Shorts URL.")
+            return
+        self.running = True
+        self.start_button.configure(state="disabled")
+        self.progress.start(10)
+        self.write_log(f"Starting download: {start}-{end}")
+        threading.Thread(target=self._download_worker, args=(url, start, end, folder), daemon=True).start()
+
+    def _download_worker(self, url: str, start: int, end: int, folder: Path) -> None:
+        try:
+            code = download(url, start, end, folder, self.events.put)
+            self.events.put(f"__DONE__:{code}")
+        except Exception as exc:
+            self.events.put(f"__ERROR__:{exc}")
+
+    def _drain_events(self) -> None:
+        try:
+            while True:
+                line = self.events.get_nowait()
+                if line.startswith("__DONE__:"):
+                    code = int(line.split(":", 1)[1])
+                    self.running = False
+                    self.start_button.configure(state="normal")
+                    self.progress.stop()
+                    self.write_log("Finished." if code == 0 else f"yt-dlp exited with code {code}.")
+                elif line.startswith("__ERROR__:"):
+                    self.running = False
+                    self.start_button.configure(state="normal")
+                    self.progress.stop()
+                    self.write_log(line)
+                    messagebox.showerror("Download error", line.split(":", 1)[1])
+                else:
+                    self.write_log(line)
+        except queue.Empty:
+            pass
+        self.after(100, self._drain_events)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--url", help="Channel or Shorts URL")
+    parser.add_argument("--range", dest="range", help="Inclusive range, such as 1-10")
+    parser.add_argument("--output", default="downloads", help="Destination folder")
+    args = parser.parse_args()
+    if args.url or args.range:
+        if not args.url or not args.range:
+            parser.error("--url and --range must be provided together")
+        return cli_main(args)
+    App().mainloop()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
