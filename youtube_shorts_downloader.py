@@ -18,6 +18,7 @@ from tkinter import filedialog, messagebox, ttk
 
 
 DEFAULT_URL = "https://www.youtube.com/@zadqolob/shorts"
+APP_DIR = Path(__file__).resolve().parent
 
 
 def yt_dlp_command() -> list[str]:
@@ -159,7 +160,7 @@ class App(tk.Tk):
 
         ttk.Label(main, text="Save folder:").grid(row=2, column=0, sticky="w", **pad)
         self.output = ttk.Entry(main)
-        self.output.insert(0, str(Path.cwd() / "downloads"))
+        self.output.insert(0, str(APP_DIR / "downloads"))
         self.output.grid(row=2, column=1, sticky="ew", **pad)
         ttk.Button(main, text="Browse…", command=self.choose_folder).grid(row=2, column=2, **pad)
 
@@ -173,6 +174,9 @@ class App(tk.Tk):
 
         ttk.Label(main, text="Cookie file (optional):").grid(row=4, column=0, sticky="w", **pad)
         self.cookies_file = ttk.Entry(main)
+        default_cookie_file = APP_DIR / "www.youtube.com_cookies.txt"
+        if default_cookie_file.is_file():
+            self.cookies_file.insert(0, str(default_cookie_file))
         self.cookies_file.grid(row=4, column=1, sticky="ew", **pad)
         ttk.Button(main, text="Browse…", command=self.choose_cookies_file).grid(row=4, column=2, **pad)
 
