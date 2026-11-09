@@ -39,6 +39,9 @@ py youtube_shorts_downloader.py `
   --cookies "C:\path\to\youtube-cookies.txt"
 ```
 
+Replace `C:\path\to\youtube-cookies.txt` with the real full path to your
+exported file. That path is only an example.
+
 Treat cookie files like passwords: do not upload or share them, and delete the
 export after use.
 

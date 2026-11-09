@@ -100,6 +100,9 @@ def cli_main(args: argparse.Namespace) -> int:
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
+    if args.cookies_file and not Path(args.cookies_file).expanduser().is_file():
+        print(f"Error: cookie file does not exist: {args.cookies_file}", file=sys.stderr)
+        return 2
     print(f"Downloading Shorts {start}-{end} from {args.url}")
     code = download(args.url, start, end, Path(args.output), args.cookies_browser, args.cookies_file, print)
     if code == 0:
@@ -209,6 +212,9 @@ class App(tk.Tk):
         browser = self.browser.get().lower()
         cookies_browser = "" if browser == "none" else browser
         cookies_file = self.cookies_file.get().strip()
+        if cookies_file and not Path(cookies_file).expanduser().is_file():
+            messagebox.showerror("Cookie file not found", f"Select an existing cookie file:\n{cookies_file}")
+            return
         if not url:
             messagebox.showerror("Missing URL", "Enter a channel or Shorts URL.")
             return
