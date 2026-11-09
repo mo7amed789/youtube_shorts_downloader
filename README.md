@@ -28,6 +28,20 @@ py youtube_shorts_downloader.py `
 Close the selected browser before starting if yt-dlp cannot read its cookie
 database. Cookies stay local and are not uploaded by this tool.
 
+If Chrome shows `Failed to decrypt with DPAPI`, use Firefox in the GUI or
+export a Netscape-format cookie file with a reputable browser cookie-export
+extension, then select it in **Cookie file**. From PowerShell, use:
+
+```powershell
+py youtube_shorts_downloader.py `
+  --url "https://www.youtube.com/@zadqolob/shorts" `
+  --range 1-10 `
+  --cookies "C:\path\to\youtube-cookies.txt"
+```
+
+Treat cookie files like passwords: do not upload or share them, and delete the
+export after use.
+
 For best quality when separate audio/video streams are selected, install
 FFmpeg and make sure `ffmpeg.exe` is on PATH. The tool will still use a
 single-file format when merging is unavailable.
@@ -39,7 +53,7 @@ py youtube_shorts_downloader.py
 ```
 
 Paste a channel/Shorts URL, enter a range such as `1-10`, choose a folder,
-select your signed-in browser if needed, and click **Download range**. The
+select your signed-in browser or cookie file if needed, and click **Download range**. The
 positions are the order returned by YouTube for that URL; ordering can change
 as new Shorts are published.
 

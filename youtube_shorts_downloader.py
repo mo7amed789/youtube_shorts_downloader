@@ -55,6 +55,7 @@ def download(
     end: int,
     folder: Path,
     cookies_browser: str = "",
+    cookies_file: str = "",
     on_line=None,
 ) -> int:
     folder.mkdir(parents=True, exist_ok=True)
@@ -73,7 +74,9 @@ def download(
         "mp4",
         url,
     ]
-    if cookies_browser:
+    if cookies_file:
+        args[0:0] = ["--cookies", cookies_file]
+    elif cookies_browser:
         # yt-dlp reads the login session from the selected local browser.
         args[0:0] = ["--cookies-from-browser", cookies_browser]
     if on_line is None:
@@ -98,7 +101,7 @@ def cli_main(args: argparse.Namespace) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
     print(f"Downloading Shorts {start}-{end} from {args.url}")
-    code = download(args.url, start, end, Path(args.output), args.cookies_browser, print)
+    code = download(args.url, start, end, Path(args.output), args.cookies_browser, args.cookies_file, print)
     if code == 0:
         print("Finished.")
     return code
@@ -149,29 +152,43 @@ class App(tk.Tk):
             row=3, column=2, sticky="w", **pad
         )
 
-        self.start_button = ttk.Button(main, text="Download range", command=self.start_download)
-        self.start_button.grid(row=4, column=1, sticky="w", **pad)
-        self.progress = ttk.Progressbar(main, mode="indeterminate")
-        self.progress.grid(row=4, column=2, sticky="ew", **pad)
+        ttk.Label(main, text="Cookie file (optional):").grid(row=4, column=0, sticky="w", **pad)
+        self.cookies_file = ttk.Entry(main)
+        self.cookies_file.grid(row=4, column=1, sticky="ew", **pad)
+        ttk.Button(main, text="Browse…", command=self.choose_cookies_file).grid(row=4, column=2, **pad)
 
-        ttk.Label(main, text="Log:").grid(row=5, column=0, sticky="nw", **pad)
+        self.start_button = ttk.Button(main, text="Download range", command=self.start_download)
+        self.start_button.grid(row=5, column=1, sticky="w", **pad)
+        self.progress = ttk.Progressbar(main, mode="indeterminate")
+        self.progress.grid(row=5, column=2, sticky="ew", **pad)
+
+        ttk.Label(main, text="Log:").grid(row=6, column=0, sticky="nw", **pad)
         self.log = tk.Text(main, height=15, wrap="word", state="disabled")
-        self.log.grid(row=5, column=1, columnspan=2, sticky="nsew", **pad)
+        self.log.grid(row=6, column=1, columnspan=2, sticky="nsew", **pad)
         scroll = ttk.Scrollbar(main, orient="vertical", command=self.log.yview)
-        scroll.grid(row=5, column=3, sticky="ns")
+        scroll.grid(row=6, column=3, sticky="ns")
         self.log.configure(yscrollcommand=scroll.set)
 
         ttk.Label(
             main,
             text="Use only for content you have permission to download or reuse.",
             foreground="#555555",
-        ).grid(row=6, column=0, columnspan=3, sticky="w", padx=12, pady=8)
+        ).grid(row=7, column=0, columnspan=3, sticky="w", padx=12, pady=8)
 
     def choose_folder(self) -> None:
         chosen = filedialog.askdirectory()
         if chosen:
             self.output.delete(0, tk.END)
             self.output.insert(0, chosen)
+
+    def choose_cookies_file(self) -> None:
+        chosen = filedialog.askopenfilename(
+            title="Select exported YouTube cookies",
+            filetypes=[("Cookie files", "*.txt *.cookies"), ("All files", "*.*")],
+        )
+        if chosen:
+            self.cookies_file.delete(0, tk.END)
+            self.cookies_file.insert(0, chosen)
 
     def write_log(self, line: str) -> None:
         self.log.configure(state="normal")
@@ -191,6 +208,7 @@ class App(tk.Tk):
         folder = Path(self.output.get().strip()).expanduser()
         browser = self.browser.get().lower()
         cookies_browser = "" if browser == "none" else browser
+        cookies_file = self.cookies_file.get().strip()
         if not url:
             messagebox.showerror("Missing URL", "Enter a channel or Shorts URL.")
             return
@@ -200,13 +218,21 @@ class App(tk.Tk):
         self.write_log(f"Starting download: {start}-{end}")
         threading.Thread(
             target=self._download_worker,
-            args=(url, start, end, folder, cookies_browser),
+            args=(url, start, end, folder, cookies_browser, cookies_file),
             daemon=True,
         ).start()
 
-    def _download_worker(self, url: str, start: int, end: int, folder: Path, cookies_browser: str) -> None:
+    def _download_worker(
+        self,
+        url: str,
+        start: int,
+        end: int,
+        folder: Path,
+        cookies_browser: str,
+        cookies_file: str,
+    ) -> None:
         try:
-            code = download(url, start, end, folder, cookies_browser, self.events.put)
+            code = download(url, start, end, folder, cookies_browser, cookies_file, self.events.put)
             self.events.put(f"__DONE__:{code}")
         except Exception as exc:
             self.events.put(f"__ERROR__:{exc}")
@@ -244,6 +270,11 @@ def main() -> int:
         dest="cookies_browser",
         choices=["chrome", "edge", "firefox", "brave"],
         help="Read YouTube login cookies from this browser",
+    )
+    parser.add_argument(
+        "--cookies",
+        dest="cookies_file",
+        help="Netscape-format cookie file exported from your browser; overrides --cookies-from-browser",
     )
     args = parser.parse_args()
     if args.url or args.range:
